@@ -303,7 +303,7 @@ async function send() {
   const inp = document.getElementById('inp');
   const text = inp.value.trim();
   if (!text) return;
-  if (OPENROUTER_KEY === 'YOUR_OPENROUTER_API_KEY') { alert('請先填入 OpenRouter API Key！\n\n用記事本打開檔案，找到 YOUR_OPENROUTER_API_KEY 換成真正的 Key。'); return; }
+  if (OPENROUTER_KEY === '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') { alert('請先填入 OpenRouter API Key！\n\n用記事本打開檔案，找到 YOUR_OPENROUTER_API_KEY 換成真正的 Key。'); return; }
   const btn = document.getElementById('snd');
   btn.disabled = true; inp.value = ''; inp.style.height = 'auto';
   addMsg('user', text);
