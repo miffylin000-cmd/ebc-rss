@@ -318,7 +318,7 @@ async function send() {
         'X-Title': 'EBC-AI-Agent'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'perplexity/sonar',
         messages: [
           { role: 'system', content: SYS },
           ...history
