@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>東森數位 撰文優化 Agent</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --red: #D0021B; --dark: #1A1A1A; --gray: #F5F5F5; --border: #E8E8E8; --text: #333; --muted: #888; }
+  body { font-family: 'Noto Sans TC', sans-serif; background: #F0F0F0; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+  .layout { width: 100%; max-width: 1100px; height: 92vh; display: flex; gap: 16px; }
+  .app { flex: 1; background: white; border-radius: 24px; box-shadow: 0 8px 40px rgba(0,0,0,0.12); display: flex; flex-direction: column; overflow: hidden; }
+  .header { background: var(--dark); padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+  .logo { width: 36px; height: 36px; background: var(--red); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; }
+  .header h1 { font-size: 14px; font-weight: 600; color: white; }
+  .header p { font-size: 11px; color: rgba(255,255,255,0.5); }
+  .dot { width: 8px; height: 8px; background: #4CAF50; border-radius: 50%; margin-left: auto; }
+  .quick { padding: 8px 14px; background: var(--gray); border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; }
+  .qbtn { background: white; border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 11px; cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
+  .qbtn:hover { border-color: var(--red); color: var(--red); background: #FFF5F5; }
+  .messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { display: flex; gap: 8px; align-items: flex-end; animation: fadeUp 0.2s ease; }
+  .msg.user { flex-direction: row-reverse; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .av { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+  .av.ai { background: var(--dark); color: white; }
+  .av.user { background: var(--red); color: white; }
+  .bwrap { display: flex; flex-direction: column; gap: 6px; max-width: 75%; }
+  .msg.user .bwrap { align-items: flex-end; }
+  .bubble { padding: 10px 14px; border-radius: 16px; font-size: 13px; line-height: 1.7; }
+  .msg.ai .bubble { background: var(--gray); border-bottom-left-radius: 4px; color: var(--text); }
+  .msg.user .bubble { background: var(--red); color: white; border-bottom-right-radius: 4px; }
+  .rss-btn { display: inline-flex; align-items: center; gap: 5px; background: white; border: 1.5px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 11px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .rss-btn:hover { border-color: #4CAF50; color: #4CAF50; }
+  .rss-btn.added { border-color: #4CAF50; color: #4CAF50; background: #F0FFF0; cursor: default; }
+  .typing { display: flex; gap: 5px; padding: 12px 14px; align-items: center; }
+  .typing span { width: 6px; height: 6px; background: var(--muted); border-radius: 50%; animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100% { transform:translateY(0); } 30% { transform:translateY(-6px); } }
+  .input-area { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: flex-end; }
+  .input-wrap { flex: 1; background: var(--gray); border: 1.5px solid var(--border); border-radius: 20px; padding: 8px 14px; transition: border-color 0.15s; }
+  .input-wrap:focus-within { border-color: var(--red); background: white; }
+  textarea { width: 100%; border: none; background: transparent; font-family: inherit; font-size: 13px; color: var(--text); resize: none; outline: none; max-height: 100px; line-height: 1.5; }
+  textarea::placeholder { color: var(--muted); }
+  .send { width: 38px; height: 38px; background: var(--red); border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+  .send:hover { background: #B0011A; transform: scale(1.05); }
+  .send:disabled { background: #CCC; cursor: not-allowed; transform: none; }
+  .send svg { width: 16px; height: 16px; fill: white; }
+  .fn { text-align: center; font-size: 10px; color: var(--muted); padding: 4px 0; }
+  /* RSS Panel */
+  .panel { width: 300px; background: white; border-radius: 24px; box-shadow: 0 8px 40px rgba(0,0,0,0.12); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  .ph { background: var(--dark); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .ph h2 { font-size: 13px; font-weight: 600; color: white; }
+  .cnt { background: var(--red); color: white; border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .plist { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .pempty { text-align: center; color: var(--muted); font-size: 12px; padding: 40px 16px; line-height: 1.6; }
+  .pitem { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; position: relative; }
+  .pitem-title { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.4; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pitem-time { font-size: 10px; color: var(--muted); }
+  .pitem-rm { position: absolute; top: 6px; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+  .pitem-rm:hover { color: var(--red); }
+  .pactions { padding: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .pset { display: flex; flex-direction: column; gap: 6px; }
+  .pset label { font-size: 11px; color: var(--muted); }
+  .pset input { width: 100%; border: 1.5px solid var(--border); border-radius: 8px; padding: 7px 10px; font-family: inherit; font-size: 12px; outline: none; }
+  .pset input:focus { border-color: var(--red); }
+  .pbtn { width: 100%; background: var(--red); color: white; border: none; border-radius: 10px; padding: 11px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .pbtn:hover { background: #B0011A; }
+  .pbtn:disabled { background: #CCC; cursor: not-allowed; }
+  .pstatus { font-size: 11px; text-align: center; padding: 4px; border-radius: 6px; display: none; }
+  .pstatus.ok { background: #F0FFF0; color: #2E7D32; display: block; }
+  .pstatus.err { background: #FFF0F0; color: var(--red); display: block; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="app">
+    <div class="header">
+      <div class="logo">東森</div>
+      <div><h1>撰文優化 Agent</h1><p>AI 寫稿 → 確認 → 發布 RSS</p></div>
+      <div class="dot"></div>
+    </div>
+    <div class="quick">
+      <button class="qbtn" onclick="qs('請幫我完整產出：初稿、摘要、標題、QA、SEO關鍵字。素材：\n\n')">📝 完整產出</button>
+      <button class="qbtn" onclick="qs('只幫我想3個標題（衝擊感、資訊型、懸念型）：\n\n')">💡 只想標題</button>
+      <button class="qbtn" onclick="qs('幫我做QA確認，檢查錯字、語意、吸引力：\n\n')">✅ QA確認</button>
+      <button class="qbtn" onclick="qs('幫我改寫成40-50字精華摘要：\n\n')">✂️ 精華摘要</button>
+      <button class="qbtn" onclick="qs('請先用網路搜尋今天世界盃最新賽果，只根據真實結果寫稿，沒結果的比賽寫「即將登場」。產出：標題3個、新聞稿300字、FB貼文。')">⚽ 今日世足</button>
+      <button class="qbtn" onclick="qs('請先用網路搜尋今天最新財經新聞，根據真實資訊產出：標題3個、新聞稿300字、FB貼文。')">📈 今日財經</button>
+    </div>
+    <div class="messages" id="msgs">
+      <div class="msg ai">
+        <div class="av ai">AI</div>
+        <div class="bwrap">
+          <div class="bubble">👋 你好！我是東森數位撰文優化助理。<br><br>貼入素材或直接下指令，我會搜尋最新資訊並產出初稿、摘要、標題、QA、SEO關鍵字。<br><br>產出後按「＋ 加入 RSS」，累積確認的文章後一鍵推到 GitHub！</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea id="inp" placeholder="貼入素材、稿件、或直接描述新聞主題..." rows="1" onkeydown="hk(event)" oninput="ar(this)"></textarea>
+      </div>
+      <button class="send" id="snd" onclick="send()">
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </div>
+    <div class="fn">AI 產出內容僅供參考，發佈前請人工確認事實與語氣</div>
+  </div>
+  <div class="panel">
+    <div class="ph"><h2>📡 RSS 發布清單</h2><span class="cnt" id="cnt">0</span></div>
+    <div class="plist" id="plist"><div class="pempty">尚無文章<br>AI 產出後按「＋ 加入 RSS」</div></div>
+    <div class="pactions">
+      <div class="pset">
+        <label>RSS 標題</label>
+        <input type="text" id="rssTitle" value="東森數位新聞" />
+        <label>文章連結前綴</label>
+        <input type="text" id="rssLink" placeholder="https://news.ebc.net.tw/news/" />
+      </div>
+      <button class="pbtn" onclick="publish()">🚀 發布到 GitHub</button>
+      <div class="pstatus" id="pst"></div>
+    </div>
+  </div>
+</div>
+<script>
+// ============================================================
+// 填入 API Keys（只需設定一次）
+// ============================================================
+const OPENROUTER_KEY = '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'; // ← 換成 sk-or-v1-... 完整 Key
+const GITHUB_TOKEN   = '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';        // ← 換成 ghp_... 完整 Token
+const GITHUB_OWNER   = 'miffylin000-cmd';
+const GITHUB_REPO    = 'ebc-rss';
+const GITHUB_FILE    = 'feed.xml';
+// ============================================================
+
+const SYS = `你是「東森數位撰文優化Agent」，專門協助東森電視台數位團隊將原始素材快速轉化為高品質數位內容。
+
+完整產出模式（預設）：
+1. 【初稿】300字，正式新聞語氣，導言→主文→結尾
+2. 【精華摘要】40-50字，口語化有梗，讓讀者想點進去
+3. 【標題選項】3個：①衝擊感 ②資訊型 ③懸念型
+4. 【QA確認】檢查錯字、語意、吸引力，有問題給修改建議，沒問題說「✅ 內容品質良好」
+5. 【SEO關鍵字】5-8個，標註主關鍵字
+
+單項模式：用戶只要某項就只產出那項。
+
+語言：全程繁體中文。初稿正式，摘要口語，QA直接。
+不捏造資訊，只根據提供素材或搜尋結果發揮。素材不足先產出再標註「⚠️ 建議補充：xxx」
+
+🚨 事實查核（最重要）：
+- 寫今日新聞必須先搜尋再寫
+- 絕對不捏造比分、賽果、人名、時間、地點
+- 沒有結果的賽事只寫「即將登場」
+- 不確定的標註「⚠️ 請編輯確認：xxx」
+- 寧可少寫不能寫錯
+
+東森語氣：不誇大失實，標題有力但符合內容，避免過多感嘆號。`;
+
+let history = [];
+let items = [];
+let counter = 0;
+
+function qs(t) { document.getElementById('inp').value = t; ar(document.getElementById('inp')); document.getElementById('inp').focus(); }
+function ar(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 100) + 'px'; }
+function hk(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }
+
+function fmt(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>');
+}
+
+function addMsg(role, content, showRss = false) {
+  const msgs = document.getElementById('msgs');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const av = document.createElement('div');
+  av.className = `av ${role}`;
+  av.textContent = role === 'ai' ? 'AI' : '我';
+  const wrap = document.createElement('div');
+  wrap.className = 'bwrap';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = fmt(content);
+  wrap.appendChild(bubble);
+  if (showRss && role === 'ai') {
+    const id = ++counter;
+    const btn = document.createElement('button');
+    btn.className = 'rss-btn';
+    btn.innerHTML = '＋ 加入 RSS';
+    btn.onclick = () => addRSS(content, id, btn);
+    wrap.appendChild(btn);
+  }
+  div.appendChild(av);
+  div.appendChild(wrap);
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('msgs');
+  const div = document.createElement('div');
+  div.className = 'msg ai'; div.id = 'typing';
+  const av = document.createElement('div');
+  av.className = 'av ai'; av.textContent = 'AI';
+  const wrap = document.createElement('div');
+  wrap.className = 'bwrap';
+  const b = document.createElement('div');
+  b.className = 'bubble typing';
+  b.innerHTML = '<span></span><span></span><span></span>';
+  wrap.appendChild(b); div.appendChild(av); div.appendChild(wrap);
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function rmTyping() { const el = document.getElementById('typing'); if (el) el.remove(); }
+
+function extractTitle(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  for (const l of lines) {
+    if (l.match(/^①|^1\./)) return l.replace(/^[①1\.\s]+/, '').trim();
+  }
+  return lines.find(l => l.length > 5 && l.length < 60) || '新聞稿';
+}
+
+function addRSS(content, id, btn) {
+  items.push({ id, title: extractTitle(content), content, pubDate: new Date() });
+  btn.className = 'rss-btn added';
+  btn.innerHTML = '✅ 已加入 RSS';
+  btn.onclick = null;
+  updatePanel();
+}
+
+function removeItem(i) { items.splice(i, 1); updatePanel(); }
+
+function updatePanel() {
+  document.getElementById('cnt').textContent = items.length;
+  const list = document.getElementById('plist');
+  if (!items.length) { list.innerHTML = '<div class="pempty">尚無文章<br>AI 產出後按「＋ 加入 RSS」</div>'; return; }
+  list.innerHTML = '';
+  items.forEach((item, i) => {
+    const d = document.createElement('div');
+    d.className = 'pitem';
+    d.innerHTML = `<button class="pitem-rm" onclick="removeItem(${i})">×</button><div class="pitem-title">${item.title}</div><div class="pitem-time">${item.pubDate.toLocaleString('zh-TW')}</div>`;
+    list.appendChild(d);
+  });
+}
+
+function genXML() {
+  const title = document.getElementById('rssTitle').value || '東森數位新聞';
+  const prefix = document.getElementById('rssLink').value || 'https://news.ebc.net.tw/news/';
+  const itemsXML = items.map(it => {
+    const link = `${prefix}${it.id}`;
+    return `  <item>
+    <title><![CDATA[${it.title}]]></title>
+    <description><![CDATA[${it.content}]]></description>
+    <link>${link}</link>
+    <guid>${link}</guid>
+    <pubDate>${it.pubDate.toUTCString()}</pubDate>
+    <author>東森數位</author>
+  </item>`;
+  }).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>${title}</title>
+    <link>https://${GITHUB_OWNER}.github.io/${GITHUB_REPO}/feed.xml</link>
+    <description>東森數位 AI 生成新聞 RSS</description>
+    <language>zh-tw</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+${itemsXML}
+  </channel>
+</rss>`;
+}
+
+async function publish() {
+  if (!items.length) { alert('請先加入文章'); return; }
+  const btn = document.querySelector('.pbtn');
+  const st = document.getElementById('pst');
+  btn.disabled = true; btn.textContent = '發布中...'; st.className = 'pstatus';
+  try {
+    const xml = genXML();
+    const encoded = btoa(unescape(encodeURIComponent(xml)));
+    let sha = null;
+    try {
+      const r = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_FILE}`,
+        { headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' } });
+      if (r.ok) { const d = await r.json(); sha = d.sha; }
+    } catch(e) {}
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_FILE}`, {
+      method: 'PUT',
+      headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: `更新RSS ${new Date().toLocaleString('zh-TW')}`, content: encoded, ...(sha && { sha }) })
+    });
+    if (res.ok) { st.className = 'pstatus ok'; st.textContent = `✅ 已發布 ${items.length} 篇！約1分鐘後自動更新`; }
+    else { const e = await res.json(); throw new Error(e.message); }
+  } catch(e) { st.className = 'pstatus err'; st.textContent = `❌ 失敗：${e.message}`; }
+  btn.disabled = false; btn.textContent = '🚀 發布到 GitHub';
+}
+
+async function send() {
+  const inp = document.getElementById('inp');
+  const text = inp.value.trim();
+  if (!text) return;
+  if (OPENROUTER_KEY === 'YOUR_OPENROUTER_API_KEY') { alert('請先填入 OpenRouter API Key！\n\n用記事本打開檔案，找到 YOUR_OPENROUTER_API_KEY 換成真正的 Key。'); return; }
+  const btn = document.getElementById('snd');
+  btn.disabled = true; inp.value = ''; inp.style.height = 'auto';
+  addMsg('user', text);
+  history.push({ role: 'user', content: text });
+  showTyping();
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_KEY}`,
+        'HTTP-Referer': 'https://miffylin000-cmd.github.io/ebc-rss/',
+        'X-Title': '東森數位撰文優化Agent'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: SYS },
+          ...history
+        ],
+        temperature: 0.7,
+        max_tokens: 2048
+      })
+    });
+    const data = await res.json();
+    rmTyping();
+    if (data.error) {
+      addMsg('ai', `❌ 錯誤：${data.error.message}`);
+      history.pop();
+    } else {
+      const reply = data.choices?.[0]?.message?.content || '⚠️ 沒有收到回應';
+      history.push({ role: 'assistant', content: reply });
+      addMsg('ai', reply, true);
+    }
+  } catch(e) {
+    rmTyping();
+    addMsg('ai', `❌ 連線失敗：${e.message}`);
+    history.pop();
+  }
+  btn.disabled = false; inp.focus();
+}
+</script>
+</body>
+</html>
